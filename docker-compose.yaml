@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  sms2telegram:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["/sms2telegram"]
+    
+    # those should be set in the environment or in a .env file
+    environment:
+      # TELEGRAM_TOKEN should be set to the token of the bot you created. Provided by BotFather
+      - TELEGRAM_TOKEN=${TELEGRAM_TOKEN}
+      # TELEGRAM_CHAT_ID should be set to the chat id of the chat you want to send messages to
+      # can be obtained by sending a message to the bot and then calling the getUpdates method on the bot API
+      # or by using a service like https://t.me/getidsbot
+      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
