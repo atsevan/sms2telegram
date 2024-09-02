@@ -22,9 +22,4 @@ jobs:
       run: go build -v ./...
 
     - name: Test
-      run: go test -v ./...            
-      
-    - name: RedSock/Releaser
-      uses: RedSockActions/release_image@v0.0.1
-          
-          
+      run: go test -v ./...
