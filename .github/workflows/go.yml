@@ -24,6 +24,7 @@ jobs:
     - name: Test
       run: go test -v ./...            
       
-    - name: Build and Push Docker Image to Docker Hub
-      uses: FireWork-Production-Private-Ltd/docker-repos@v3.0.2
+    - name: RedSock/Releaser
+      uses: RedSockActions/release_image@v0.0.1
+          
           
