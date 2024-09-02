@@ -12,6 +12,11 @@ import (
 	"time"
 )
 
+const (
+	httpTimeout     = 10 * time.Second
+	sendMessageTmpl = "https://api.telegram.org/bot%s/sendMessage"
+)
+
 // errNoNewMessages represents the error when there are no new messages.
 var errNoNewMessages = fmt.Errorf("no new messages")
 
@@ -77,17 +82,32 @@ func (s Sms) Validate() error {
 	return nil
 }
 
+// GammuClient represents a client to interact with the sms-gammu-gateway.
+type GammuClient struct {
+	HTTPClient *http.Client
+	GetSMSUrl  string
+	Username   string
+	Password   string
+}
+
+// TelegramClient represents a client to interact with the Telegram API.
+type TelegramClient struct {
+	HTTPClient *http.Client
+	ChatID     string
+	URL        string
+	Token      string
+}
+
 // fetchSMS fetches the SMS from the sms-gammu-gateway endpoint.
-func fetchSMS(url, username, password string) (Sms, error) {
-	client := &http.Client{Timeout: 10 * time.Second}
-	req, err := http.NewRequest("GET", url, nil)
+func (g *GammuClient) fetchSMS() (Sms, error) {
+	req, err := http.NewRequest(http.MethodGet, g.GetSMSUrl, nil)
 	if err != nil {
 		return Sms{}, err
 	}
 
-	req.SetBasicAuth(username, password)
+	req.SetBasicAuth(g.Username, g.Password)
 
-	resp, err := client.Do(req)
+	resp, err := g.HTTPClient.Do(req)
 	if err != nil {
 		return Sms{}, err
 	}
@@ -116,11 +136,9 @@ func fetchSMS(url, username, password string) (Sms, error) {
 }
 
 // sendTelegramMessage sends a message to a Telegram chat.
-func sendTelegramMessage(token, chatID, message string) error {
-	url := fmt.Sprintf("https://api.telegram.org/bot%s/sendMessage", token)
-
+func (t *TelegramClient) sendTelegramMessage(message string) error {
 	payload := map[string]string{
-		"chat_id": chatID,
+		"chat_id": t.ChatID,
 		"text":    message,
 		// "parse_mode": "Markdown",
 	}
@@ -130,7 +148,12 @@ func sendTelegramMessage(token, chatID, message string) error {
 		return err
 	}
 
-	resp, err := http.Post(url, "application/json", bytes.NewBuffer(payloadBytes))
+	req, err := http.NewRequest(http.MethodPost, t.URL, bytes.NewBuffer(payloadBytes))
+	if err != nil {
+		return err
+	}
+
+	resp, err := t.HTTPClient.Do(req)
 	if err != nil {
 		return err
 	}
@@ -144,7 +167,7 @@ func sendTelegramMessage(token, chatID, message string) error {
 }
 
 // pollSMS polls the SMS endpoint and sends a Telegram message for each new SMS.
-func pollSMS(stopChan chan struct{}) {
+func PollSMS(gummuc GammuClient, telegramc TelegramClient, interval time.Duration, stopChan chan struct{}) {
 	for {
 		select {
 		case <-stopChan:
@@ -152,25 +175,25 @@ func pollSMS(stopChan chan struct{}) {
 			return
 		default:
 			// Fetch SMS from endpoint
-			sms, err := fetchSMS(*endpoint, *username, *password)
+			sms, err := gummuc.fetchSMS()
 			if err != nil {
 				if err != errNoNewMessages {
 					log.Println("Error fetching SMS:", err)
 				}
-				time.Sleep(*interval)
+				time.Sleep(interval)
 				continue
 			}
 
 			log.Println("Got new sms: ", sms)
 
 			// Send Telegram message
-			err = sendTelegramMessage(*telegramToken, *telegramChatID, sms.String())
+			err = telegramc.sendTelegramMessage(sms.String())
 			if err != nil {
 				log.Println("Error sending Telegram message:", err)
 			}
 
 			// Wait for the next interval
-			time.Sleep(*interval)
+			time.Sleep(interval)
 		}
 	}
 }
@@ -183,11 +206,25 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Create clients
+	gummuc := GammuClient{
+		HTTPClient: &http.Client{Timeout: httpTimeout},
+		GetSMSUrl:  *endpoint,
+		Username:   *username,
+		Password:   *password,
+	}
+	telegramc := TelegramClient{
+		HTTPClient: &http.Client{Timeout: httpTimeout},
+		ChatID:     *telegramChatID,
+		URL:        fmt.Sprintf(sendMessageTmpl, *telegramToken),
+		Token:      *telegramToken,
+	}
+
 	// Create a channel to stop polling
 	stopChan := make(chan struct{})
 
 	// Start polling in a separate goroutine
-	go pollSMS(stopChan)
+	go PollSMS(gummuc, telegramc, *interval, stopChan)
 
 	// Wait for a signal to stop polling
 	select {}
