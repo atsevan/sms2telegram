@@ -63,6 +63,7 @@ func (s Sms) String() string {
 
 // Validate validates the Sms struct.
 func (s Sms) Validate() error {
+	// if the SMS is empty assuming that there are no new messages
 	if s.Date == "" && s.Number == "" && s.State == "" && s.Text == "" {
 		return errNoNewMessages
 	}

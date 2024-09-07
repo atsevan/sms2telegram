@@ -25,6 +25,9 @@ func TestFetchSMS(t *testing.T) {
 		if r.URL.Path != "/getsms" {
 			t.Errorf("fetchSMS received incorrect URL path: got %s, want %s", r.URL.Path, "/getsms")
 		}
+
+		// Verify the Authorization header
+		// admin:password base64 encoded is YWRtaW46cGFzc3dvcmQ=
 		if r.Header.Get("Authorization") != "Basic YWRtaW46cGFzc3dvcmQ=" {
 			t.Errorf("fetchSMS received incorrect Authorization header: got %s, want %s", r.Header.Get("Authorization"), "Basic YWRtaW46cGFzc3dvcmQ=")
 		}
