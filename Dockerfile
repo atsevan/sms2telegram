@@ -18,7 +18,7 @@ COPY . .
 RUN GOOS=linux GOARCH=amd64 go build -o /sms2telegram
 
 # Start a new stage from scratch
-FROM alpine:latest
+FROM scratch
 
 # Copy the Pre-built binary file from the previous stage
 COPY --from=builder /sms2telegram /sms2telegram
