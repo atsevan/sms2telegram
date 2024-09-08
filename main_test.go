@@ -40,13 +40,13 @@ func TestFetchSMS(t *testing.T) {
 	// Create a new Sms2Telegram instance with the test server URL
 	s := &GammuClient{
 		HTTPClient: ts.Client(),
-		GetSMSUrl:  ts.URL + "/getsms",
+		Endpoint:   ts.URL,
 		Username:   "admin",
 		Password:   "password",
 	}
 
 	// Call the fetchSMS method
-	smsTest, err := s.fetchSMS()
+	smsTest, err := s.FetchSMS()
 
 	// Verify the result
 	if err != nil {
@@ -105,7 +105,7 @@ func TestPollSMS(t *testing.T) {
 
 	gc := &GammuClient{
 		HTTPClient: http.DefaultClient,
-		GetSMSUrl:  "http://localhost:8080/getsms",
+		Endpoint:   "http://localhost:8080/",
 		Username:   "admin",
 		Password:   "password",
 	}
@@ -125,4 +125,41 @@ func TestPollSMS(t *testing.T) {
 
 	// Stop the polling by sending a signal to the stop channel
 	stopChan <- struct{}{}
+}
+
+func TestReset(t *testing.T) {
+	// Create a test server to mock the sms-gammu-gateway reset endpoint
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Verify the request parameters
+		if r.Method != http.MethodGet {
+			t.Errorf("Reset received incorrect HTTP method: got %s, want %s", r.Method, http.MethodGet)
+		}
+		if r.URL.Path != "/reset" {
+			t.Errorf("Reset received incorrect URL path: got %s, want %s", r.URL.Path, "/reset")
+		}
+
+		// Verify the Authorization header
+		// admin:password base64 encoded is YWRtaW46cGFzc3dvcmQ=
+		if r.Header.Get("Authorization") != "Basic YWRtaW46cGFzc3dvcmQ=" {
+			t.Errorf("Reset received incorrect Authorization header: got %s, want %s", r.Header.Get("Authorization"), "Basic YWRtaW46cGFzc3dvcmQ=")
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer ts.Close()
+
+	// Create a new GammuClient instance with the test server URL
+	gc := &GammuClient{
+		HTTPClient: ts.Client(),
+		Endpoint:   ts.URL,
+		Username:   "admin",
+		Password:   "password",
+	}
+
+	// Call the Reset method
+	err := gc.Reset()
+
+	// Verify the result
+	if err != nil {
+		t.Errorf("Reset returned an error: %v", err)
+	}
 }

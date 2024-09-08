@@ -113,5 +113,5 @@ services:
     environment:
       - TELEGRAM_TOKEN=${TELEGRAM_TOKEN}
       - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
-      - ENDPOINT=http://sms-gammu-gateway:5000/getsms
+      - ENDPOINT=http://sms-gammu-gateway:5000/
 ```

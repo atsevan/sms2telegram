@@ -21,7 +21,7 @@ const (
 var errNoNewMessages = fmt.Errorf("no new messages")
 
 var (
-	endpoint       = flag.String("endpoint", getEnv("ENDPOINT", "http://localhost:5000/getsms"), "sms-gammu-gateway URL")
+	endpoint       = flag.String("endpoint", getEnv("ENDPOINT", "http://localhost:5000/"), "sms-gammu-gateway URL")
 	username       = flag.String("username", getEnv("USERNAME", "admin"), "sms-gammu-gateway username")
 	password       = flag.String("password", getEnv("PASSWORD", "password"), "sms-gammu-gateway password")
 	telegramToken  = flag.String("telegram-token", getEnv("TELEGRAM_TOKEN", ""), "Telegram bot token")
@@ -69,16 +69,16 @@ func (s Sms) Validate() error {
 	}
 
 	if s.Date == "" {
-		return fmt.Errorf("Date is required")
+		return fmt.Errorf("date is required")
 	}
 	if s.Number == "" {
-		return fmt.Errorf("Number is required")
+		return fmt.Errorf("number is required")
 	}
 	if s.State == "" {
-		return fmt.Errorf("State is required")
+		return fmt.Errorf("state is required")
 	}
 	if s.Text == "" {
-		return fmt.Errorf("Text is required")
+		return fmt.Errorf("text is required")
 	}
 	return nil
 }
@@ -86,7 +86,7 @@ func (s Sms) Validate() error {
 // GammuClient represents a client to interact with the sms-gammu-gateway.
 type GammuClient struct {
 	HTTPClient *http.Client
-	GetSMSUrl  string
+	Endpoint   string
 	Username   string
 	Password   string
 }
@@ -100,8 +100,9 @@ type TelegramClient struct {
 }
 
 // fetchSMS fetches the SMS from the sms-gammu-gateway endpoint.
-func (g *GammuClient) fetchSMS() (Sms, error) {
-	req, err := http.NewRequest(http.MethodGet, g.GetSMSUrl, nil)
+func (g *GammuClient) FetchSMS() (Sms, error) {
+	getSmsURL := fmt.Sprintf("%s/getsms", g.Endpoint)
+	req, err := http.NewRequest(http.MethodGet, getSmsURL, nil)
 	if err != nil {
 		return Sms{}, err
 	}
@@ -134,6 +135,28 @@ func (g *GammuClient) fetchSMS() (Sms, error) {
 	}
 
 	return sms, nil
+}
+
+// Reset resets the device.
+func (g *GammuClient) Reset() error {
+	resetURL := fmt.Sprintf("%s/reset", g.Endpoint)
+	req, err := http.NewRequest(http.MethodGet, resetURL, nil)
+	if err != nil {
+		log.Println("Error creating request:", err)
+		return err
+	}
+	req.SetBasicAuth(g.Username, g.Password)
+
+	resp, err := g.HTTPClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("unexpected status: %s", resp.Status)
+	}
+	return nil
 }
 
 // sendTelegramMessage sends a message to a Telegram chat.
@@ -176,10 +199,15 @@ func PollSMS(gummuc GammuClient, telegramc TelegramClient, interval time.Duratio
 			return
 		default:
 			// Fetch SMS from endpoint
-			sms, err := gummuc.fetchSMS()
+			sms, err := gummuc.FetchSMS()
 			if err != nil {
 				if err != errNoNewMessages {
 					log.Println("Error fetching SMS:", err)
+					log.Println("Resetting the device")
+					err = gummuc.Reset()
+					if err != nil {
+						log.Println("Error resetting the device:", err)
+					}
 				}
 				time.Sleep(interval)
 				continue
@@ -210,7 +238,7 @@ func main() {
 	// Create clients
 	gummuc := GammuClient{
 		HTTPClient: &http.Client{Timeout: httpTimeout},
-		GetSMSUrl:  *endpoint,
+		Endpoint:   *endpoint,
 		Username:   *username,
 		Password:   *password,
 	}
