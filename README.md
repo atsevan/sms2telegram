@@ -1,6 +1,6 @@
 # SMS to Telegram
 
-This project polls an sms-gammu-gateway endoint and sends a Telegram message for each new SMS received.
+This project checks an [SMS Gammu Gateway](https://github.com/pajikos/sms-gammu-gateway) endpoint and sends a Telegram message for each new SMS it receives. It doesn’t store SMSs, doesn't rely on a relational database (RDBMS), and has a minimal list of dependencies.
 
 ## Prerequisites
 
@@ -30,9 +30,9 @@ This project polls an sms-gammu-gateway endoint and sends a Telegram message for
 1. Set the required environment variables:
 
     ```sh
-    export TELEGRAM_TOKEN=your_telegram_token
-    export TELEGRAM_CHAT_ID=your_telegram_chat_id
-    export ENDPOINT=your_sms_endpoint
+    export TELEGRAM_TOKEN=your_telegram_token      # Provided by BotFather
+    export TELEGRAM_CHAT_ID=your_telegram_chat_id  # Forward the message to https://t.me/getidsbot
+    export ENDPOINT=your_sms_endpoint              # http://sms-gammu-gateway:5000
     export USERNAME=your_username
     export PASSWORD=your_password
     export INTERVAL=10s
@@ -99,21 +99,28 @@ version: '3'
 services:
   sms-gammu-gateway:
     container_name: sms-gammu-gateway
-    restart: unless-stopped
+    restart: on-failure
     image: pajikos/sms-gammu-gateway
+    #    environment:
+    #      - PIN="1234"
     ports:
       - "5000:5000"
     devices:
       - /dev/ttyUSB0:/dev/mobile
-
+    healthcheck:
+      test: curl --fail http://localhost:5000/signal || exit 1
+      interval: 40s
+      timeout: 30s
+      retries: 3
+      start_period: 60s
   sms2telegram:
     restart: unless-stopped
-    image: atsevan/sms2telegram
+    image: atsevan/sms2telegram:latest
     depends_on:
       - sms-gammu-gateway
     # those should be set in the environment or in a .env file
     environment:
       - TELEGRAM_TOKEN=${TELEGRAM_TOKEN}
       - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
-      - ENDPOINT=http://sms-gammu-gateway:5000/
+      - ENDPOINT=http://sms-gammu-gateway:5000
 ```
