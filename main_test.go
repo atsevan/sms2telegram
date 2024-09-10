@@ -8,6 +8,15 @@ import (
 	"time"
 )
 
+func emptyJson() []byte {
+	// Create an empty JSON object
+	emptyJSON := struct{}{}
+
+	// Marshal the empty JSON object to bytes
+	bytes, _ := json.Marshal(emptyJSON)
+	return bytes
+}
+
 func TestFetchSMS(t *testing.T) {
 	sms := Sms{
 		Date:   "2022-01-01",
@@ -67,6 +76,7 @@ func TestFetchSMS(t *testing.T) {
 }
 
 func TestSendTelegramMessage(t *testing.T) {
+
 	// Create a test server to mock the Telegram API endpoint
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Verify the request parameters
@@ -76,6 +86,11 @@ func TestSendTelegramMessage(t *testing.T) {
 		if r.URL.Path != "/bottelegram-token/sendMessage" {
 			t.Errorf("sendTelegramMessage received incorrect URL path: got %s, want %s", r.URL.Path, "/bottelegram-token/sendMessage")
 		}
+		if r.Header.Get("Content-Type") != "application/json" {
+			t.Errorf("sendTelegramMessage should set application/json as a content-type")
+		}
+
+		w.Write(emptyJson())
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -103,18 +118,25 @@ func TestPollSMS(t *testing.T) {
 	stopChan := make(chan struct{})
 	defer close(stopChan)
 
+	// Create a test server to mock the Telegram API endpoint
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Verify the request parameters
+		w.WriteHeader(http.StatusOK)
+	}))
+
 	gc := &GammuClient{
-		HTTPClient: http.DefaultClient,
-		Endpoint:   "http://localhost:8080/",
+		HTTPClient: ts.Client(),
+		Endpoint:   ts.URL,
 		Username:   "admin",
 		Password:   "password",
 	}
 
+	defer ts.Close()
 	tc := &TelegramClient{
-		HTTPClient: http.DefaultClient,
+		HTTPClient: ts.Client(),
 		ChatID:     "telegram-chat-id",
 		Token:      "telegram-token",
-		URL:        "http://localhost:8080/bottelegram-token/sendMessage",
+		URL:        ts.URL + "/bottelegram-token/sendMessage",
 	}
 
 	// Start the polling in a separate goroutine

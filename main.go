@@ -177,14 +177,22 @@ func (t *TelegramClient) sendTelegramMessage(message string) error {
 		return err
 	}
 
+	req.Header.Set("Content-Type", "application/json")
+
 	resp, err := t.HTTPClient.Do(req)
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
 
+	var response map[string]interface{}
+	err = json.NewDecoder(resp.Body).Decode(&response)
+	if err != nil {
+		return err
+	}
+
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("unexpected status: %s", resp.Status)
+		return fmt.Errorf("unexpected status: %s. %s", resp.Status, response["description"])
 	}
 
 	return nil
@@ -201,16 +209,17 @@ func PollSMS(gummuc GammuClient, telegramc TelegramClient, interval time.Duratio
 			// Fetch SMS from endpoint
 			sms, err := gummuc.FetchSMS()
 			if err != nil {
-				if err != errNoNewMessages {
-					log.Println("Error fetching SMS:", err)
-					log.Println("Resetting the device")
-					err = gummuc.Reset()
-					if err != nil {
-						log.Println("Error resetting the device:", err)
-					}
+				if err == errNoNewMessages {
+					time.Sleep(interval)
+					continue
 				}
-				time.Sleep(interval)
-				continue
+
+				log.Println("Error fetching SMS:", err)
+				log.Println("Trying to reset device")
+				err = gummuc.Reset()
+				if err != nil {
+					log.Fatalf("Failed to reset the device: %v", err)
+				}
 			}
 
 			log.Println("Got new sms: ", sms)
@@ -247,6 +256,12 @@ func main() {
 		ChatID:     *telegramChatID,
 		URL:        fmt.Sprintf(sendMessageTmpl, *telegramToken),
 		Token:      *telegramToken,
+	}
+
+	// Send Telegram message
+	err := telegramc.sendTelegramMessage("Bot has started")
+	if err != nil {
+		log.Fatalf("Error sending Telegram message: %v", err)
 	}
 
 	// Create a channel to stop polling

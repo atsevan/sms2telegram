@@ -109,6 +109,8 @@ services:
   sms2telegram:
     restart: unless-stopped
     image: atsevan/sms2telegram
+    depends_on:
+      - sms-gammu-gateway
     # those should be set in the environment or in a .env file
     environment:
       - TELEGRAM_TOKEN=${TELEGRAM_TOKEN}
