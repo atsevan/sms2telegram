@@ -1,6 +1,8 @@
 # Use the official Golang image to create a build artifact.
 FROM golang:1.23 AS builder
 
+RUN apt update; apt install -y ca-certificates
+
 # Set the Current Working Directory inside the container
 WORKDIR /app
 
@@ -19,6 +21,9 @@ RUN GOOS=linux GOARCH=amd64 go build -o /sms2telegram
 
 # Start a new stage from scratch
 FROM scratch
+
+# To verify x509 certificates for telegram
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 
 # Copy the Pre-built binary file from the previous stage
 COPY --from=builder /sms2telegram /sms2telegram
