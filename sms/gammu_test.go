@@ -11,29 +11,25 @@ func TestGammuClient_ReadSMS(t *testing.T) {
 	tests := []struct {
 		name     string
 		response string
-		want     []Sms
+		want     Sms
 		wantErr  error
 	}{
 		{
 			name:     "Test message with all fields",
 			response: `{"ID":"1","Text":"Test message 1","Number":"+123456789","State":"received","Date":"2022-01-01"}`,
-			want: []Sms{
-				{ID: "1", Text: "Test message 1", Number: "+123456789", State: "received", Date: "2022-01-01"},
-			},
-			wantErr: nil,
+			want:     Sms{ID: "1", Text: "Test message 1", Number: "+123456789", State: "received", Date: "2022-01-01"},
+			wantErr:  nil,
 		},
 		{
 			name:     "Test message with missing date",
 			response: `{"ID":"2","Text":"Test message 2","Number":"+123456789","State":"received"}`,
-			want: []Sms{
-				{ID: "2", Text: "Test message 2", Number: "+123456789", State: "received"},
-			},
-			wantErr: ErrNoDate,
+			want:     Sms{ID: "2", Text: "Test message 2", Number: "+123456789", State: "received"},
+			wantErr:  ErrNoDate,
 		},
 		{
 			name:     "Empty message",
 			response: `{}`,
-			want:     []Sms{{}},
+			want:     Sms{},
 			wantErr:  ErrNoNewMessages,
 		},
 	}
@@ -66,29 +62,29 @@ func TestGammuClient_ReadSMS(t *testing.T) {
 
 			sms, err := client.ReadSMS()
 			if err != nil {
-				t.Fatalf("Expected no error, got: %v", err)
+				if err != tt.wantErr {
+					t.Fatalf("Expected no error, got: %v", err)
+				}
 			}
 
-			if len(sms) != len(tt.want) {
-				t.Fatalf("Expected %d SMS messages, got: %d", len(tt.want), len(sms))
-			}
+			// gammu-sms-gateway returns a single SMS object
+			s := sms[0]
+			want := tt.want
 
-			for i, want := range tt.want {
-				if sms[i].ID != want.ID {
-					t.Errorf("Expected ID '%s', got: '%s'", want.ID, sms[i].ID)
-				}
-				if sms[i].Text != want.Text {
-					t.Errorf("Expected Text '%s', got: '%s'", want.Text, sms[i].Text)
-				}
-				if sms[i].Number != want.Number {
-					t.Errorf("Expected Number '%s', got: '%s'", want.Number, sms[i].Number)
-				}
-				if sms[i].State != want.State {
-					t.Errorf("Expected State '%s', got: '%s'", want.State, sms[i].State)
-				}
-				if sms[i].Date != want.Date {
-					t.Errorf("Expected Date '%s', got: '%s'", want.Date, sms[i].Date)
-				}
+			if s.ID != want.ID {
+				t.Errorf("Expected ID '%s', got: '%s'", want.ID, s.ID)
+			}
+			if s.Text != want.Text {
+				t.Errorf("Expected Text '%s', got: '%s'", want.Text, s.Text)
+			}
+			if s.Number != want.Number {
+				t.Errorf("Expected Number '%s', got: '%s'", want.Number, s.Number)
+			}
+			if s.State != want.State {
+				t.Errorf("Expected State '%s', got: '%s'", want.State, s.State)
+			}
+			if s.Date != want.Date {
+				t.Errorf("Expected Date '%s', got: '%s'", want.Date, s.Date)
 			}
 
 			validateSms := func(s Sms, expectedErr error) {
@@ -97,9 +93,7 @@ func TestGammuClient_ReadSMS(t *testing.T) {
 					t.Errorf("Expected error '%v', got: '%v'", expectedErr, err)
 				}
 			}
-			for _, sms := range tt.want {
-				validateSms(sms, tt.wantErr)
-			}
+			validateSms(s, tt.wantErr)
 		})
 
 	}
