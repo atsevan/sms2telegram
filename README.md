@@ -107,12 +107,6 @@ services:
       - "5000:5000"
     devices:
       - /dev/ttyUSB0:/dev/mobile
-    healthcheck:
-      test: curl --fail http://localhost:5000/signal || exit 1
-      interval: 40s
-      timeout: 30s
-      retries: 3
-      start_period: 60s
   sms2telegram:
     restart: unless-stopped
     image: atsevan/sms2telegram:latest
