@@ -29,7 +29,8 @@ var (
 	telegramChatID = flag.String("telegram-chat-id", getEnv("TELEGRAM_CHAT_ID", ""), "Telegram chat ID")
 
 	// Polling configuration
-	interval = flag.Duration("interval", getEnvDuration("INTERVAL", 5*time.Second), "polling interval")
+	interval      = flag.Duration("interval", getEnvDuration("INTERVAL", 5*time.Second), "polling interval")
+	fetchAttempts = flag.Int("fetch-attempts", 5, "number of fetch attempts before stopping the polling")
 )
 
 func getEnv(key, defaultValue string) string {
@@ -62,7 +63,7 @@ type TelegramSender interface {
 
 // PollSMS polls the SMS endpoint and sends a Telegram message for each new SMS.
 func PollSMS(ctx context.Context, sr SmsReader, ts TelegramSender, interval time.Duration) {
-	fetchAttempts := 0
+	fails := 0
 	ctx, cancel := context.WithCancel(ctx)
 
 	for {
@@ -77,9 +78,9 @@ func PollSMS(ctx context.Context, sr SmsReader, ts TelegramSender, interval time
 			if err != nil {
 				if err != sms.ErrNoNewMessages {
 					log.Println("Error fetching SMS:", err)
-					fetchAttempts++
+					fails++
 				}
-				if fetchAttempts > 5 {
+				if fails > *fetchAttempts {
 					log.Println("Too many fetch attempts. Stopping the polling.")
 					cancel()
 					return
@@ -98,7 +99,7 @@ func PollSMS(ctx context.Context, sr SmsReader, ts TelegramSender, interval time
 					log.Println("Error sending Telegram message:", err)
 				}
 			}
-			fetchAttempts = 0
+			fails = 0
 			// Wait for the next interval
 			time.Sleep(interval)
 		}
