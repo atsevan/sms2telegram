@@ -1,12 +1,23 @@
 version: '3.8'
 
 services:
+  sms-gammu-gateway:
+    container_name: sms-gammu-gateway
+    restart: on-failure
+    image: pajikos/sms-gammu-gateway
+    #    environment:
+    #      - PIN="1234"
+    ports:
+      - "5000:5000"
+    devices:
+      # see [udev/rules.d/usb-modem.rules]
+      - /dev/mobile:/dev/mobile
   sms2telegram:
     build:
       context: .
       dockerfile: Dockerfile
-    command: ["/sms2telegram"]
-    
+    command: [ "/sms2telegram" ]
+
     # those should be set in the environment or in a .env file
     environment:
       # TELEGRAM_TOKEN should be set to the token of the bot you created. Provided by BotFather

@@ -106,7 +106,8 @@ services:
     ports:
       - "5000:5000"
     devices:
-      - /dev/ttyUSB0:/dev/mobile
+      # see [udev/rules.d/usb-modem.rules]
+      - /dev/mobile:/dev/mobile
   sms2telegram:
     restart: unless-stopped
     image: atsevan/sms2telegram:latest

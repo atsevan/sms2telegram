@@ -1,0 +1,19 @@
+# Rules for Managing USB Modem
+#
+# These rules are designed to handle the /dev/mobile device and manage Docker containers based on the USB modem's connection status. They ensure that:
+#
+#    The /dev/mobile device is properly created when the USB modem is connected.
+#    Docker containers are stopped and started appropriately when the device is connected or disconnected.
+#    udev can reuse the same device name, avoiding unnecessary updates to the Docker devices list.
+#
+# To configure these rules for your specific USB modem, you need to identify the modem's vendor and model IDs. You can find these IDs by running:
+#
+# udevadm info /dev/ttyUSB0
+#
+# In this case, the provided IDs are specific to the HUAWEI E220 modem. Replace them with the appropriate IDs for your device if necessary.
+# Copy this file to /etc/udev/rules.d/ and run `udevadm control --reload-rules`
+#
+# check out `udevadm info /dev/ttyUSB0` for ID_USB_VENDOR_ID and ID_USB_MODEL_ID
+SUBSYSTEM=="tty", ENV{ID_USB_VENDOR_ID}=="12d1", ENV{ID_USB_MODEL_ID}=="1003", MODE="0666", SYMLINK+="mobile"
+ACTION=="remove", SUBSYSTEM=="tty", ENV{ID_USB_VENDOR_ID}=="12d1", ENV{ID_USB_MODEL_ID}=="1003", RUN+="/bin/sh -c '/usr/bin/docker stop sms-gammu-gateway >> /var/log/udev-docker-stop.log 2>&1'"
+ACTION=="add", SUBSYSTEM=="tty", ENV{ID_USB_VENDOR_ID}=="12d1", ENV{ID_USB_MODEL_ID}=="1003", RUN+="/bin/sh -c 'sleep 2; /usr/bin/docker start sms-gammu-gateway >> /var/log/udev-docker-start.log 2>&1'"
